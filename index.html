@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08090d">
+<title>UUCINEMA — Private Theatre</title>
+<style>
+:root{color-scheme:dark;--bg:#08090d;--panel:#11131b;--muted:#85899a;--line:#252936;--white:#f4f5fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--white);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100svh}
+header{height:68px;padding:0 clamp(18px,4vw,54px);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff0c}
+.brand{font-weight:800;letter-spacing:.19em;font-size:14px}.brand span{color:#8e91a3}.status{font-size:11px;letter-spacing:.12em;color:#a6a9b7}
+main{width:min(1180px,94vw);margin:clamp(32px,7vh,76px) auto 50px}.intro{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:24px}.eyebrow{color:#9b9fb1;font-size:11px;letter-spacing:.2em;text-transform:uppercase}.intro h1{font-size:clamp(27px,4vw,42px);letter-spacing:-.045em;margin:7px 0 0}.intro p{color:var(--muted);margin:8px 0 0;font-size:14px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#171a24;color:var(--white);padding:11px 16px;border-radius:9px;font-weight:650;cursor:pointer}.btn.primary{background:#f0f1f6;color:#101116;border-color:#f0f1f6}.btn:focus-visible{outline:2px solid #aeb5ff;outline-offset:3px}
+.stage{background:#030407;border:1px solid #242733;border-radius:16px;overflow:hidden;box-shadow:0 24px 90px #0009}.screen{aspect-ratio:16/9;display:grid;place-items:center;position:relative;min-height:220px}.screen video{width:100%;height:100%;position:absolute;inset:0;object-fit:contain;background:#030407}.empty{text-align:center;padding:28px;z-index:1}.empty .glyph{font-size:38px;color:#777d91;margin-bottom:12px}.empty h2{font-size:17px;margin:0 0 5px}.empty p{color:#777d91;font-size:13px;margin:0}.stagebar{padding:15px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#0d0f15;border-top:1px solid #ffffff0d}.filename{min-width:0}.filename strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.filename small{color:var(--muted);font-size:11px}.stagebar .tools{display:flex;align-items:center;gap:8px}.tool{border:1px solid var(--line);background:#171a24;color:#dfe1eb;padding:8px 11px;border-radius:8px;cursor:pointer;font-size:12px}
+.note{margin:18px 2px 0;color:#777d8e;font-size:12px}.note b{color:#b9bdcb;font-weight:600}
+input[type=file]{display:none}
+@media(max-width:650px){header{height:58px}.intro{display:block}.actions{margin-top:18px}.screen{aspect-ratio:16/10;min-height:190px}.stagebar{align-items:flex-start;flex-direction:column}.stagebar .tools{width:100%;flex-wrap:wrap}.stagebar .tools button{flex:1}}
+</style>
+</head>
+<body>
+<header><div class="brand">UU<span>CINEMA</span></div><div class="status">PERSONAL THEATRE</div></header>
+<main>
+<section class="intro"><div><div class="eyebrow">Your private screening room</div><h1>Settle in.</h1><p>A quiet, full-screen space for your movies.</p></div><div class="actions"><button class="btn primary" id="openBtn">＋ &nbsp;Open movie</button><button class="btn" id="forgetBtn" title="Forget the remembered file reference">Forget file</button></div></section>
+<section class="stage" aria-label="Movie player"><div class="screen" id="screen"><div class="empty" id="empty"><div class="glyph">▶</div><h2>Your theatre is ready</h2><p>Open a movie to begin your screening.</p></div><video id="video" controls playsinline preload="metadata" hidden></video></div><div class="stagebar"><div class="filename"><strong id="fileName">Nothing playing</strong><small id="fileInfo">Your video stays where it is — no duplicate copy is made.</small></div><div class="tools"><button class="tool" id="subBtn">Subtitles: browser default</button><button class="tool" id="fullBtn">⛶ Fullscreen</button></div></div></section>
+<p class="note"><b>Privacy first.</b> The video is read directly from the file you choose. UUCINEMA does not upload it or save a second copy. A remembered file reference works only in browsers that support persistent file handles.</p>
+<input id="fallbackInput" type="file" accept="video/*,.mp4,.m4v,.mov,.webm">
+</main>
+<script>
+const video=document.querySelector('#video'), input=document.querySelector('#fallbackInput'), empty=document.querySelector('#empty');
+const nameEl=document.querySelector('#fileName'), infoEl=document.querySelector('#fileInfo');
+let currentUrl=null, db;
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('uucinema',1);req.onupgradeneeded=()=>req.result.createObjectStore('refs');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+async function getDB(){if(!db)db=await openDB();return db}
+async function saveHandle(handle){try{const d=await getDB();await new Promise((res,rej)=>{const tx=d.transaction('refs','readwrite');tx.objectStore('refs').put(handle,'lastMovie');tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}catch(e){console.info('File reference could not be saved',e)}}
+async function readHandle(){try{const d=await getDB();return await new Promise((res,rej)=>{const tx=d.transaction('refs');const q=tx.objectStore('refs').get('lastMovie');q.onsuccess=()=>res(q.result||null);q.onerror=()=>rej(q.error)})}catch{return null}}
+async function forget(){try{const d=await getDB();await new Promise((res,rej)=>{const tx=d.transaction('refs','readwrite');tx.objectStore('refs').delete('lastMovie');tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}catch{}}
+function playFile(file){if(!file)return;if(currentUrl)URL.revokeObjectURL(currentUrl);currentUrl=URL.createObjectURL(file);video.src=currentUrl;video.hidden=false;empty.hidden=true;nameEl.textContent=file.name;infoEl.textContent=(file.size/1073741824).toFixed(2)+' GB · opened directly from your selected file';video.load()}
+async function tryRemembered(){const handle=await readHandle();if(!handle)return false;try{let p=await handle.queryPermission({mode:'read'});if(p!=='granted')p=await handle.requestPermission({mode:'read'});if(p!=='granted')return false;playFile(await handle.getFile());return true}catch{return false}}
+document.querySelector('#openBtn').addEventListener('click',async()=>{if('showOpenFilePicker'in window){try{const [handle]=await window.showOpenFilePicker({multiple:false, types:[{description:'Video',accept:{'video/*':['.mp4','.m4v','.mov','.webm']}}]});await saveHandle(handle);playFile(await handle.getFile());return}catch(e){if(e.name==='AbortError')return}}input.click()});
+input.addEventListener('change',()=>{const file=input.files?.[0];if(file)playFile(file);input.value=''});
+document.querySelector('#forgetBtn').addEventListener('click',async()=>{await forget();nameEl.textContent='Nothing playing';infoEl.textContent='Saved file reference forgotten.'});
+document.querySelector('#fullBtn').addEventListener('click',()=>{const target=document.querySelector('.stage');if(document.fullscreenElement)document.exitFullscreen?.();else if(target.requestFullscreen)target.requestFullscreen();else video.webkitEnterFullscreen?.()});
+document.querySelector('#subBtn').addEventListener('click',()=>{const tracks=[...video.textTracks];if(!tracks.length){infoEl.textContent='No browser-accessible subtitle tracks detected. Embedded MP4 subtitle support depends on the browser.';return}const active=tracks.findIndex(t=>t.mode==='showing');tracks.forEach((t,i)=>t.mode=i===(active+1)%tracks.length?'showing':'disabled');document.querySelector('#subBtn').textContent=tracks.some(t=>t.mode==='showing')?'Subtitles: on':'Subtitles: off'});
+// Restore only when the browser supports persistent file handles. Safari/iOS falls back to a normal picker.
+if('showOpenFilePicker'in window){tryRemembered().then(ok=>{if(ok)infoEl.textContent='Remembered file reopened · stored reference only'})}
+</script>
+</body></html>
